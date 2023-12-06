@@ -12,8 +12,7 @@ extract_line = re.compile(
 def load(idx: int, fp: TextIO):
     global report
     for line in fp:
-        r = extract_line.match(line)
-        if r:
+        if r := extract_line.match(line):
             module: str = r.group("module")
             percent: float = float(r.group("percent"))
 
@@ -40,15 +39,15 @@ for module, values in report.items():
         elif base < head:
             bad.append((module, base, head))
 
-if len(bad) > 0:
+if bad:
     print("Imprecision went up:")
     for module, base, head in bad:
         print(f"{module}:\t\t{base} -> {head}")
 
-if len(good) > 0:
+if good:
     print("Imprecision went down:")
     for module, base, head in good:
         print(f"{module}:\t\t{base} -> {head}")
 
-if len(bad) > 0:
+if bad:
     sys.exit(1)

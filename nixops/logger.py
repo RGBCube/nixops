@@ -50,7 +50,7 @@ class Logger(object):
             if last != prefix:
                 if last is not None:
                     self._log_file.write("\n")
-                if msg == "":
+                if not msg:
                     return
                 self._log_file.write(prefix)
             self._log_file.write(msg + "\n")
@@ -78,10 +78,10 @@ class Logger(object):
             ml.update_log_prefix(max_len)
 
     def warn(self, msg: str) -> None:
-        self.log(ansi_warn("warning: " + msg, outfile=self._log_file))
+        self.log(ansi_warn(f"warning: {msg}", outfile=self._log_file))
 
     def error(self, msg: str) -> None:
-        self.log(ansi_error("error: " + msg, outfile=self._log_file))
+        self.log(ansi_error(f"error: {msg}", outfile=self._log_file))
 
     def confirm_once(self, question: str) -> Optional[bool]:
         with self._log_lock:
@@ -105,7 +105,7 @@ class Logger(object):
             response = response.rstrip().lower()
             if response == "y":
                 return True
-            if response == "n" or response == "":
+            if response in ["n", ""]:
                 return False
         return None
 
@@ -149,10 +149,10 @@ class MachineLogger(object):
         self.main_logger.log_end(self._log_prefix, msg)
 
     def warn(self, msg: str) -> None:
-        self.log(ansi_warn("warning: " + msg, outfile=self.main_logger._log_file))
+        self.log(ansi_warn(f"warning: {msg}", outfile=self.main_logger._log_file))
 
     def error(self, msg: str) -> None:
-        self.log(ansi_error("error: " + msg, outfile=self.main_logger._log_file))
+        self.log(ansi_error(f"error: {msg}", outfile=self.main_logger._log_file))
 
     def success(self, msg: str) -> None:
         self.log(ansi_success(msg, outfile=self.main_logger._log_file))

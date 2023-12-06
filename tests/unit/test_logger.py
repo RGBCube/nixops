@@ -45,7 +45,7 @@ class MachineLoggerTest(RootLoggerTest):
 
     def test_continue(self):
         self.m1_logger.log_start("Begin...")
-        for dummy in range(10):
+        for _ in range(10):
             self.m1_logger.log_continue(".")
         self.m1_logger.log_end("end.")
         self.assert_log("machine1> Begin.............end.\n")
@@ -54,7 +54,7 @@ class MachineLoggerTest(RootLoggerTest):
         self.m1_logger.log_start("Begin 1...")
         self.m2_logger.log_start("Begin 2...")
 
-        for dummy in range(10):
+        for _ in range(10):
             self.m1_logger.log_continue(".")
             self.m2_logger.log_continue(".")
 

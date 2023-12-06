@@ -45,15 +45,15 @@ class LegacyBackend(StorageBackend[LegacyBackendOptions]):
                     "renaming ‘{0}’ to ‘{1}’...\n".format(charon_dir, nixops_dir)
                 )
                 os.rename(charon_dir, nixops_dir)
-                if os.path.exists(nixops_dir + "/deployments.charon"):
+                if os.path.exists(f"{nixops_dir}/deployments.charon"):
                     os.rename(
-                        nixops_dir + "/deployments.charon",
-                        nixops_dir + "/deployments.nixops",
+                        f"{nixops_dir}/deployments.charon",
+                        f"{nixops_dir}/deployments.nixops",
                     )
             else:
                 os.makedirs(nixops_dir, 0o700)
 
-        return nixops_dir + "/deployments.nixops"
+        return f"{nixops_dir}/deployments.nixops"
 
     # uploadFromFile: upload the new state file and release any locks
     # Note: no arguments will be passed over kwargs. Making it part of

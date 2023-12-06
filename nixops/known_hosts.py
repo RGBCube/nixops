@@ -45,12 +45,11 @@ def _rewrite(ip_address: str, add_ip: bool, public_host_key: str) -> None:
             ]
 
             if add_ip:
-                new.append(ip_address + " " + public_host_key)
+                new.append(f"{ip_address} {public_host_key}")
 
             tmp = "{0}.tmp-{1}".format(path, os.getpid())
-            f = open(tmp, "w")
-            f.write("\n".join(new + [""]))
-            f.close()
+            with open(tmp, "w") as f:
+                f.write("\n".join(new + [""]))
             os.rename(tmp, path)
 
 

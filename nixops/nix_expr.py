@@ -99,11 +99,11 @@ class Container(object):
             + len(self.suffix)
             + 1
             + len(self.children)
-            + sum([child.get_min_length() or 0 for child in self.children])
+            + sum(child.get_min_length() or 0 for child in self.children)
         )
 
     def is_inlineable(self) -> bool:
-        return all([child.is_inlineable() for child in self.children])
+        return all(child.is_inlineable() for child in self.children)
 
     def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80) -> str:
         if not self.is_inlineable():
@@ -176,7 +176,7 @@ def py2nix(  # noqa: C901
 
     def _enc_int(node):
         if node < 0:
-            return RawValue("builtins.sub 0 " + str(-node))
+            return RawValue(f"builtins.sub 0 {str(-node)}")
         else:
             return RawValue(str(node))
 
@@ -213,7 +213,7 @@ def py2nix(  # noqa: C901
         pre, post = "[", "]"
         while len(nodes) == 1 and isinstance(nodes[0], list):
             nodes = nodes[0]
-            pre, post = pre + " [", post + " ]"
+            pre, post = f"{pre} [", f"{post} ]"
         return Container(pre, [_enc(n, inlist=True) for n in nodes], post)
 
     def _enc_key(key):
@@ -242,7 +242,7 @@ def py2nix(  # noqa: C901
             child_key, child_value = key, value
             while isinstance(child_value, dict) and len(child_value) == 1:
                 child_key, child_value = next(iter(child_value.items()))
-                encoded_key += "." + _enc_key(child_key)
+                encoded_key += f".{_enc_key(child_key)}"
 
             contents = _enc(child_value)
             prefix = "{0} = ".format(encoded_key)
@@ -253,7 +253,7 @@ def py2nix(  # noqa: C901
 
     def _enc_function(node):
         body = _enc(node.body)
-        return enclose_node(body, node.head + ": ")
+        return enclose_node(body, f"{node.head}: ")
 
     def _enc_call(node):
         return Container("(", [_enc(node.fun), _enc(node.arg)], ")")
@@ -287,10 +287,7 @@ def py2nix(  # noqa: C901
             else:
                 return _enc_function(node)
         elif isinstance(node, Call):
-            if inlist:
-                return enclose_node(_enc_call(node), "(", ")")
-            else:
-                return _enc_call(node)
+            return enclose_node(_enc_call(node), "(", ")") if inlist else _enc_call(node)
         else:
             raise ValueError("unable to encode {0}".format(repr(node)))
 
@@ -316,10 +313,7 @@ def expand_dict(unexpanded) -> Dict:
                 raise KeyError("invalid key {0}".format(repr(key)))
 
             newkey = key[0]
-            if len(key) > 1:
-                newval = {key[1:]: val}
-            else:
-                newval = val
+            newval = {key[1:]: val} if len(key) > 1 else val
             paths.append({newkey: newval})
         else:
             strings[key] = val

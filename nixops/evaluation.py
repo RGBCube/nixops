@@ -56,14 +56,14 @@ class NetworkFile:
 
 def get_expr_path() -> str:
     expr_path: str = os.path.realpath(
-        os.path.dirname(__file__) + "/../../../../share/nix/nixops"
+        f"{os.path.dirname(__file__)}/../../../../share/nix/nixops"
     )
     if not os.path.exists(expr_path):
         expr_path = os.path.realpath(
-            os.path.dirname(__file__) + "/../../../../../share/nix/nixops"
+            f"{os.path.dirname(__file__)}/../../../../../share/nix/nixops"
         )
     if not os.path.exists(expr_path):
-        expr_path = os.path.dirname(__file__) + "/../nix"
+        expr_path = f"{os.path.dirname(__file__)}/../nix"
     return expr_path
 
 
@@ -97,25 +97,61 @@ def eval(
         else ["nix-instantiate", "--eval-only", "--json", "--strict"]
     )
     argv: List[str] = (
-        base_cmd
-        + ["--show-trace"]
-        + [os.path.join(get_expr_path(), "eval-machine-info.nix")]
-        + ["-I", "nixops=" + get_expr_path()]
-        + [
-            "--arg",
-            "networkExprs",
-            py2nix([RawValue(x) if x[0] == "<" else x for x in exprs]),
-        ]
-        + [
-            "--arg",
-            "args",
-            py2nix({key: RawValue(val) for key, val in args.items()}, inline=True),
-        ]
-        + ["--argstr", "uuid", uuid]
-        + ["--argstr", "deploymentName", deploymentName]
-        + ["--arg", "pluginNixExprs", py2nix(pluginNixExprs)]
-        + ["--arg", "checkConfigurationOptions", json.dumps(checkConfigurationOptions)]
-        + list(itertools.chain(*[["-I", x] for x in (nix_path + pluginNixExprs)]))
+        (
+            (
+                (
+                    (
+                        (
+                            (
+                                (
+                                    base_cmd
+                                    + ["--show-trace"]
+                                    + [
+                                        os.path.join(
+                                            get_expr_path(),
+                                            "eval-machine-info.nix",
+                                        )
+                                    ]
+                                    + ["-I", f"nixops={get_expr_path()}"]
+                                )
+                                + [
+                                    "--arg",
+                                    "networkExprs",
+                                    py2nix(
+                                        [
+                                            RawValue(x) if x[0] == "<" else x
+                                            for x in exprs
+                                        ]
+                                    ),
+                                ]
+                            )
+                            + [
+                                "--arg",
+                                "args",
+                                py2nix(
+                                    {
+                                        key: RawValue(val)
+                                        for key, val in args.items()
+                                    },
+                                    inline=True,
+                                ),
+                            ]
+                        )
+                        + ["--argstr", "uuid", uuid]
+                    )
+                    + ["--argstr", "deploymentName", deploymentName]
+                )
+                + ["--arg", "pluginNixExprs", py2nix(pluginNixExprs)]
+            )
+            + [
+                "--arg",
+                "checkConfigurationOptions",
+                json.dumps(checkConfigurationOptions),
+            ]
+        )
+        + list(
+            itertools.chain(*[["-I", x] for x in (nix_path + pluginNixExprs)])
+        )
         + extra_flags
     )
 
@@ -126,14 +162,18 @@ def eval(
         argv.extend(["-A", attr])
 
     if networkExpr.is_flake:
-        argv.extend(["--allowed-uris", get_expr_path()])
-        argv.extend(["--argstr", "flakeUri", networkExpr.network])
-
+        argv.extend(
+            [
+                "--allowed-uris",
+                get_expr_path(),
+                "--argstr",
+                "flakeUri",
+                networkExpr.network,
+            ]
+        )
     try:
         ret = subprocess.check_output(argv, stderr=stderr, text=True)
-        if build:
-            return ret.strip()
-        return json.loads(ret)
+        return ret.strip() if build else json.loads(ret)
     except OSError as e:
         raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
     except subprocess.CalledProcessError:

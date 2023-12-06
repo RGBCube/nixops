@@ -76,30 +76,29 @@ class CommandOutputState(nixops.resources.ResourceState[CommandOutputDefinition]
         allow_recreate: bool,
     ) -> None:
         if (
-            (defn.config.script is not None)
-            and (self.script != defn.config.script)
-            or self.value is None
-        ):
-            self.commandName = defn.name
-            try:
-                output_dir = nixops.util.SelfDeletingDir(
-                    tempfile.mkdtemp(prefix="nixops-output-tmp")
-                )
+            defn.config.script is None or self.script == defn.config.script
+        ) and self.value is not None:
+            return
+        self.commandName = defn.name
+        try:
+            output_dir = nixops.util.SelfDeletingDir(
+                tempfile.mkdtemp(prefix="nixops-output-tmp")
+            )
 
-                self.log("Running shell function for output ‘{0}’...".format(defn.name))
-                env = {}  # type: Dict[str,str]
-                env.update(os.environ)
-                env.update({"out": output_dir})
-                res = subprocess.check_output(
-                    [defn.config.script], env=env, shell=True, text=True
-                )
-                with self.depl._db:
-                    self.value = res
-                    self.state = self.UP
-                    self.script = defn.config.script
-            except Exception:
-                self.log("Creation failed for output ‘{0}’...".format(defn.name))
-                raise
+            self.log("Running shell function for output ‘{0}’...".format(defn.name))
+            env = {}  # type: Dict[str,str]
+            env.update(os.environ)
+            env["out"] = output_dir
+            res = subprocess.check_output(
+                [defn.config.script], env=env, shell=True, text=True
+            )
+            with self.depl._db:
+                self.value = res
+                self.state = self.UP
+                self.script = defn.config.script
+        except Exception:
+            self.log("Creation failed for output ‘{0}’...".format(defn.name))
+            raise
 
     def prefix_definition(self, attr):
         # type: (Dict[str,Function]) -> Dict[Tuple[str,str],Dict[str,Function]]
@@ -117,7 +116,6 @@ class CommandOutputState(nixops.resources.ResourceState[CommandOutputDefinition]
             self.log("destroying...")
         else:
             raise Exception("can't proceed further")
-            return False
         self.value = None
         self.state = self.MISSING
         return True

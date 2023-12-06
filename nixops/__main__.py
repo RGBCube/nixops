@@ -62,7 +62,7 @@ def main() -> None:
         sys.exit(1)
     except MultipleExceptions as e:
         error(str(e))
-        if args.debug or args.show_trace or str(e) == "":
+        if args.debug or args.show_trace or not str(e):
             e.print_all_backtraces()
         sys.exit(1)
     except NixError as e:

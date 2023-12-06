@@ -10,9 +10,9 @@ from nixops.evaluation import NetworkFile
 
 parent_dir = path.dirname(__file__)
 
-has_hello_spec = "%s/single_machine_has_hello.nix" % (parent_dir)
+has_hello_spec = f"{parent_dir}/single_machine_has_hello.nix"
 
-rollback_spec = "%s/single_machine_rollback.nix" % (parent_dir)
+rollback_spec = f"{parent_dir}/single_machine_rollback.nix"
 
 
 class TestRollbackRollsback(SingleMachineTest):

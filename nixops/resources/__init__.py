@@ -193,9 +193,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
                 (self.id, name),
             )
             row = c.fetchone()
-            if row is not None:
-                return row[0]
-            return nixops.util.undefined
+            return row[0] if row is not None else nixops.util.undefined
 
     def export(self) -> Dict[str, Dict[str, str]]:
         """Export the resource to move between databases"""
@@ -333,15 +331,12 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     def delete_resources(self) -> bool:
         """delete this resource state, if possible."""
         if not self.depl.logger.confirm(
-            "are you sure you want to clear the state of {}? "
-            "this will only remove the resource from the local "
-            "NixOps state and the resource may still exist outside "
-            "of the NixOps database.".format(self.name)
+            f"are you sure you want to clear the state of {self.name}? this will only remove the resource from the local NixOps state and the resource may still exist outside of the NixOps database."
         ):
             return False
 
         self.logger.warn(
-            "removing resource {} from the local NixOps database ...".format(self.name)
+            f"removing resource {self.name} from the local NixOps database ..."
         )
         return True
 
@@ -352,10 +347,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
 
     # Is this necessary?
     def get_index(self) -> int:
-        if self.index is None:
-            return -1
-        else:
-            return self.index
+        return -1 if self.index is None else self.index
 
 
 @runtime_checkable
@@ -392,9 +384,7 @@ class DiffEngineResourceState(
             diff_engine.plan(show=True)
         else:
             self.logger.warn(
-                "resource type {} doesn't implement a plan operation".format(
-                    self.get_type()
-                )
+                f"resource type {self.get_type()} doesn't implement a plan operation"
             )
 
     def setup_diff_engine(self, defn: ResourceDefinitionType):

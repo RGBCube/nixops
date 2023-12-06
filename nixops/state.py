@@ -29,7 +29,7 @@ class StateDict(collections.abc.MutableMapping):
                 )
             else:
                 v = value
-                if isinstance(value, list) or isinstance(value, dict):
+                if isinstance(value, (list, dict)):
                     v = json.dumps(value, cls=nixops.util.NixopsEncoder)
                 c.execute(
                     "insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
@@ -52,7 +52,7 @@ class StateDict(collections.abc.MutableMapping):
                     return v
                 except ValueError:
                     return row[0]
-            raise KeyError("couldn't find key {} in the state file".format(key))
+            raise KeyError(f"couldn't find key {key} in the state file")
 
     def __delitem__(self, key: str) -> None:
         with self._db:

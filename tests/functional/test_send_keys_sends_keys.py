@@ -4,8 +4,8 @@ from tests.functional.single_machine_test import SingleMachineTest
 
 parent_dir = path.dirname(__file__)
 
-secret_key_spec = "%s/single_machine_secret_key.nix" % (parent_dir)
-elsewhere_key_spec = "%s/single_machine_elsewhere_key.nix" % (parent_dir)
+secret_key_spec = f"{parent_dir}/single_machine_secret_key.nix"
+elsewhere_key_spec = f"{parent_dir}/single_machine_elsewhere_key.nix"
 
 
 class TestSendKeysSendsKeys(SingleMachineTest):
