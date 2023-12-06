@@ -114,16 +114,12 @@ def network_state(
         raise Exception("Missing storage provider plugin.")
 
     lock: Optional[LockInterface]
-    if doLock:
-        lock = get_lock(network)
-    else:
-        lock = None
-
+    lock = get_lock(network) if doLock else None
     storage_class_options = storage_class.options(**network.storage.configuration)
     storage: StorageInterface = storage_class(storage_class_options)
 
     with TemporaryDirectory("nixops") as statedir:
-        statefile = statedir + "/state.nixops"
+        statefile = f"{statedir}/state.nixops"
         if lock is not None:
             lock.lock(description=description, exclusive=writable)
         try:
@@ -277,11 +273,7 @@ def op_create(args: Namespace) -> None:
         sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
         modify_deployment(args, depl)
 
-        # When deployment is created without state "name" does not exist
-        name: str = args.deployment
-        if "name" in args:
-            name = args.name or args.deployment
-
+        name = args.name or args.deployment if "name" in args else args.deployment
         if name:
             set_name(depl, name)
 
@@ -324,18 +316,15 @@ def op_info(args: Namespace) -> None:  # noqa: C901
     ]
 
     def state(
-        depl: nixops.deployment.Deployment,
-        d: Optional[nixops.resources.ResourceDefinition],
-        m: nixops.backends.GenericMachineState,
-    ) -> str:
+            depl: nixops.deployment.Deployment,
+            d: Optional[nixops.resources.ResourceDefinition],
+            m: nixops.backends.GenericMachineState,
+        ) -> str:
         if d and m.obsolete:
             return "Revived"
         if d is None and m.obsolete:
             return "Obsolete"
-        if depl.configs_path != m.cur_configs_path:
-            return "Outdated"
-
-        return "Up-to-date"
+        return "Outdated" if depl.configs_path != m.cur_configs_path else "Up-to-date"
 
     def do_eval(depl) -> None:
         set_common_depl(depl, args)
@@ -445,14 +434,16 @@ def op_info(args: Namespace) -> None:  # noqa: C901
 
                 print("Nix expression:", get_network_file(args).network)
                 if depl.nix_path != []:
-                    print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
+                    print("Nix path:", " ".join([f"-I {x}" for x in depl.nix_path]))
 
                 if depl.rollback_enabled:
                     print("Nix profile:", depl.get_profile())
                 if depl.args != {}:
                     print(
                         "Nix arguments:",
-                        ", ".join([n + " = " + v for n, v in depl.args.items()]),
+                        ", ".join(
+                            [f"{n} = {v}" for n, v in depl.args.items()]
+                        ),
                     )
                 print()
                 tbl = create_table(table_headers)
@@ -573,11 +564,11 @@ def op_check(args: Namespace) -> None:  # noqa: C901
         )
 
         def resource_worker(
-            r: nixops.resources.GenericResourceState,
-        ) -> Optional[ResourceStatus]:
+                    r: nixops.resources.GenericResourceState,
+                ) -> Optional[ResourceStatus]:
             if not nixops.deployment.is_machine(r):
                 r.check()
-                exist = True if r.state == nixops.resources.ResourceState.UP else False
+                exist = r.state == nixops.resources.ResourceState.UP
                 row = ([r.depl.name or r.depl.uuid] if args.all else []) + [
                     r.name,
                     render_tristate(exist),
@@ -678,22 +669,19 @@ def op_backup_status(args: Namespace) -> None:
                     backupid = sorted_backups[0]
                 if backupid not in backups:
                     raise Exception("backup ID ‘{0}’ does not exist".format(backupid))
-                _backups = {}
-                _backups[backupid] = backups[backupid]
+                _backups = {backupid: backups[backupid]}
             else:
                 _backups = backups
 
             print_backups(depl, _backups)
 
             backups_status = [b["status"] for _, b in _backups.items()]
-            if "running" in backups_status:
-                if args.wait:
-                    print("waiting for 30 seconds...")
-                    time.sleep(30)
-                else:
-                    raise Exception("backup has not yet finished")
-            else:
+            if "running" not in backups_status:
                 return
+            if not args.wait:
+                raise Exception("backup has not yet finished")
+            print("waiting for 30 seconds...")
+            time.sleep(30)
 
 
 def op_restore(args: Namespace) -> None:
@@ -799,9 +787,10 @@ def op_rename(args: Namespace) -> None:
 def print_physical_backup_spec(
     depl: nixops.deployment.Deployment, backupid: str
 ) -> None:
-    config = {}
-    for m in depl.active_machines.values():
-        config[m.name] = m.get_physical_backup_spec(backupid)
+    config = {
+        m.name: m.get_physical_backup_spec(backupid)
+        for m in depl.active_machines.values()
+    }
     sys.stdout.write(py2nix(config))
 
 
@@ -837,10 +826,7 @@ def op_dump_nix_paths(args: Namespace) -> None:
 
     def strip_nix_path(p: str) -> str:
         parts: List[str] = p.split("=")
-        if len(parts) == 1:
-            return parts[0]
-        else:
-            return parts[1]
+        return parts[0] if len(parts) == 1 else parts[1]
 
     def nix_paths(depl: nixops.deployment.Deployment) -> List[str]:
         set_common_depl(depl, args)
@@ -911,7 +897,7 @@ def parse_machine(
 ) -> Tuple[str, str, nixops.backends.GenericMachineState]:
     username: Optional[str]
     machine_name: str
-    if name.find("@") == -1:
+    if "@" not in name:
         username = None
         machine_name = name
     else:
@@ -984,7 +970,7 @@ def op_ssh_for_each(args: Namespace) -> None:
                 if result is not None
             ]
 
-    sys.exit(max([r for r in results if r is not None]) if results != [] else 0)
+    sys.exit(max(r for r in results if r is not None) if results != [] else 0)
 
 
 def scp_loc(user: str, ssh_name: str, remote: str, loc: str) -> str:
@@ -1028,8 +1014,14 @@ def op_mount(args: Namespace) -> None:
         # setting up, so we can safely delete the SSH identity file
         # afterwards.
         res = subprocess.call(
-            ["sshfs", username + "@" + ssh_name + ":" + remote_path, args.destination]
-            + new_flags
+            (
+                [
+                    "sshfs",
+                    f"{username}@{ssh_name}:{remote_path}",
+                    args.destination,
+                ]
+                + new_flags
+            )
         )
         sys.exit(res)
 
@@ -1105,20 +1097,20 @@ def op_rollback(args: Namespace) -> None:
 
 def op_show_console_output(args: Namespace) -> None:
     with deployment(args, False, "nixops show-console-output") as depl:
-        m = depl.machines.get(args.machine)
-        if not m:
+        if m := depl.machines.get(args.machine):
+            sys.stdout.write(m.get_console_output())
+        else:
             raise Exception("unknown machine ‘{0}’".format(args.machine))
-        sys.stdout.write(m.get_console_output())
 
 
 def op_edit(args: Namespace) -> None:
     with deployment(args, False, "nixops edit") as depl:
-        editor = os.environ.get("EDITOR")
-        if not editor:
+        if editor := os.environ.get("EDITOR"):
+            os.system(
+                "$EDITOR " + " ".join([pipes.quote(x) for x in depl.network_expr.network])
+            )
+        else:
             raise Exception("the $EDITOR environment variable is not set")
-        os.system(
-            "$EDITOR " + " ".join([pipes.quote(x) for x in depl.network_expr.network])
-        )
 
 
 def op_copy_closure(args: Namespace) -> None:

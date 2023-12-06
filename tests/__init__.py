@@ -7,7 +7,7 @@ import nixops.statefile
 
 _multiprocess_shared_ = True
 
-db_file = "%s/test.nixops" % (path.dirname(__file__))
+db_file = f"{path.dirname(__file__)}/test.nixops"
 
 
 def setup():
@@ -32,9 +32,7 @@ def destroy(sf, uuid):
 def teardown():
     sf = nixops.statefile.StateFile(db_file, writable=True)
     uuids = sf.query_deployments()
-    threads = []
-    for uuid in uuids:
-        threads.append(threading.Thread(target=destroy, args=(sf, uuid)))
+    threads = [threading.Thread(target=destroy, args=(sf, uuid)) for uuid in uuids]
     for thread in threads:
         thread.start()
     for thread in threads:

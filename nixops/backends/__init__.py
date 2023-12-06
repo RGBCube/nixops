@@ -151,7 +151,7 @@ class MachineState(
     @property
     def started(self) -> bool:
         state = self.state
-        return state == self.STARTING or state == self.UP  # type: ignore
+        return state in [self.STARTING, self.UP]
 
     def set_common_state(self, defn: MachineDefinitionType) -> None:
         self.defn = defn
@@ -233,25 +233,13 @@ class MachineState(
                 # Alternatively, we *could* talk to DBus which has always been
                 # the first-class API.
                 line: str = raw_line.strip(" ●")
-                match: Optional[Match[str]] = re.match("^([^ ]+) .* failed .*$", line)
-                if match:
+                if match := re.match("^([^ ]+) .* failed .*$", line):
                     res.failed_units.append(match.group(1))
 
-                # services that are in progress
-                match = re.match("^([^ ]+) .* activating .*$", line)
-                if match:
+                if match := re.match("^([^ ]+) .* activating .*$", line):
                     res.in_progress_units.append(match.group(1))
 
-                # Currently in systemd, failed mounts enter the
-                # "inactive" rather than "failed" state.  So check for
-                # that.  Hack: ignore special filesystems like
-                # /sys/kernel/config and /tmp. Systemd tries to mount these
-                # even when they don't exist.
-                match = re.match(
-                    r"^([^\.]+\.mount) .* inactive .*$", line
-                )  # noqa: W605
-
-                if match:
+                if match := re.match(r"^([^\.]+\.mount) .* inactive .*$", line):
                     unit = match.group(1)
 
                     isSystemMount = (
@@ -259,7 +247,7 @@ class MachineState(
                         or unit.startswith("dev-")
                         or unit == "run-initramfs.mount"
                     )
-                    isBuiltinMount = unit == "tmp.mount" or unit == "home.mount"
+                    isBuiltinMount = unit in ["tmp.mount", "home.mount"]
 
                     if not isSystemMount and not isBuiltinMount:
                         res.failed_units.append(unit)
@@ -394,7 +382,7 @@ class MachineState(
 
         for k, opts in self.get_keys().items():
             self.logger.log("uploading key ‘{0}’ to ‘{1}’...".format(k, opts["path"]))
-            tmp = self.depl.tempdir + "/key-" + self.name
+            tmp = f"{self.depl.tempdir}/key-{self.name}"
 
             destDir: str = opts["destDir"].rstrip("/")
             self.run_command(
@@ -427,10 +415,10 @@ class MachineState(
             outfile = opts["path"]
             # We scp to a temporary file and then mv because scp is not atomic.
             # See https://github.com/NixOS/nixops/issues/762
-            tmp_outfile = destDir + "/." + opts["name"] + ".tmp"
+            tmp_outfile = f"{destDir}/." + opts["name"] + ".tmp"
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
             tmp_outfile_esc = "'" + tmp_outfile.replace("'", r"'\''") + "'"
-            self.run_command("rm -f " + outfile_esc + " " + tmp_outfile_esc)
+            self.run_command(f"rm -f {outfile_esc} {tmp_outfile_esc}")
             self.upload_file(tmp, tmp_outfile)
             # For permissions we use the temporary file as well, so that
             # the final outfile will appear atomically with the right permissions.
@@ -451,7 +439,7 @@ class MachineState(
                     tmp_outfile_esc, opts["user"], opts["group"], opts["permissions"]
                 )
             )
-            self.run_command("mv " + tmp_outfile_esc + " " + outfile_esc)
+            self.run_command(f"mv {tmp_outfile_esc} {outfile_esc}")
             os.remove(tmp)
         self.run_command(
             "mkdir -m 0750 -p /run/keys && "
@@ -492,16 +480,13 @@ class MachineState(
 
     def get_known_hosts_file(self, *args, **kwargs) -> Optional[str]:
         k = self.get_ssh_host_keys()
-        if k is not None:
-            return self.write_ssh_known_hosts(k)
-        else:
-            return None
+        return self.write_ssh_known_hosts(k) if k is not None else None
 
     def get_ssh_flags(self, scp: bool = False) -> List[str]:
         flags: List[str] = list(self.ssh_options)
 
         if self.ssh_port is not None:
-            flags = flags + ["-o", "Port=" + str(self.ssh_port)]
+            flags += ["-o", f"Port={str(self.ssh_port)}"]
 
         # We add our own public host key (if known) to GlobalKnownHostsFile.
         # This way we don't override keys in ~/.ssh/known_hosts that some users
@@ -511,7 +496,7 @@ class MachineState(
         known_hosts_file = self.get_known_hosts_file()
 
         if known_hosts_file is not None:
-            flags = flags + ["-o", "GlobalKnownHostsFile=" + known_hosts_file]
+            flags += ["-o", f"GlobalKnownHostsFile={known_hosts_file}"]
 
         return flags
 
@@ -578,9 +563,7 @@ class MachineState(
             if os.path.exists(globalFile):
                 with open(globalFile) as f:
                     contents = f.read()
-                known_hosts = (
-                    known_hosts + f"\n\n# entries from {globalFile}\n" + contents
-                )
+                known_hosts = f"{known_hosts}\n\n# entries from {globalFile}\n{contents}"
 
         file = "{0}/known_host_nixops-{1}".format(self.depl.tempdir, self.name)
         with os.fdopen(os.open(file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
@@ -600,7 +583,7 @@ class MachineState(
         # If we are in rescue state, unset locale specific stuff, because we're
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
-            command = "export LANG= LC_ALL= LC_TIME=; " + command
+            command = f"export LANG= LC_ALL= LC_TIME=; {command}"
         return self.ssh.run_command(command, user=self.ssh_user, **kwargs)
 
     def switch_to_configuration(
@@ -616,7 +599,7 @@ class MachineState(
             cmd += "/nix/var/nix/profiles/system/bin/switch-to-configuration"
         else:
             cmd += command
-        cmd += " " + method
+        cmd += f" {method}"
         return int(self.run_command(cmd, check=False))
 
     def copy_closure_to(self, path: str) -> None:
@@ -641,9 +624,7 @@ class MachineState(
     def _get_scp_name(self) -> str:
         ssh_name = self.get_ssh_name()
         # ipv6 addresses have to be wrapped in brackets for scp
-        if ":" in ssh_name:
-            return "[%s]" % (ssh_name)
-        return ssh_name
+        return f"[{ssh_name}]" if ":" in ssh_name else ssh_name
 
     def _fmt_rsync_command(self, *args: str, recursive: bool = False) -> List[str]:
         master = self.ssh.get_master(user=self.ssh_user)
@@ -673,7 +654,7 @@ class MachineState(
     ) -> Union[str, int]:
         cmdline = self._fmt_rsync_command(
             source,
-            self.ssh_user + "@" + self._get_scp_name() + ":" + target,
+            f"{self.ssh_user}@{self._get_scp_name()}:{target}",
             recursive=recursive,
         )
         return self._logged_exec(cmdline)
@@ -682,7 +663,7 @@ class MachineState(
         self, source: str, target: str, recursive: bool = False
     ) -> Union[str, int]:
         cmdline = self._fmt_rsync_command(
-            self.ssh_user + "@" + self._get_scp_name() + ":" + source,
+            f"{self.ssh_user}@{self._get_scp_name()}:{source}",
             target,
             recursive=recursive,
         )

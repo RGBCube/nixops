@@ -12,9 +12,9 @@ class MultipleExceptions(Exception):
         self.exceptions = exceptions
 
     def __str__(self) -> str:
-        err = "Multiple exceptions (" + str(len(self.exceptions)) + "): \n"
+        err = f"Multiple exceptions ({len(self.exceptions)}" + "): \n"
         for r in sorted(self.exceptions.keys()):
-            err += "  * {}: {}\n".format(r, self.exceptions[r])
+            err += f"  * {r}: {self.exceptions[r]}\n"
         return err
 
     def print_all_backtraces(self) -> None:

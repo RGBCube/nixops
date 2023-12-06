@@ -44,18 +44,14 @@ class PluginManager:
     @staticmethod
     def deployment_hooks() -> Generator[DeploymentHooks, None, None]:
         for plugin in get_plugins():
-            machine_hooks = plugin.deployment_hooks()
-            if not machine_hooks:
-                continue
-            yield machine_hooks
+            if machine_hooks := plugin.deployment_hooks():
+                yield machine_hooks
 
     @staticmethod
     def machine_hooks() -> Generator[MachineHooks, None, None]:
         for plugin in get_plugins():
-            machine_hooks = plugin.machine_hooks()
-            if not machine_hooks:
-                continue
-            yield machine_hooks
+            if machine_hooks := plugin.machine_hooks():
+                yield machine_hooks
 
     @classmethod
     def load(cls) -> None:

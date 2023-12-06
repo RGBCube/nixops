@@ -224,7 +224,7 @@ class Deployment:
     ) -> nixops.resources.ResourceDefinition:
         defn = self._definition_for(name)
         if defn is None:
-            raise Exception("Bug: Deployment.definitions['{}'] is None.".format(name))
+            raise Exception(f"Bug: Deployment.definitions['{name}'] is None.")
         return defn
 
     def _machine_definition_for_required(
@@ -232,7 +232,7 @@ class Deployment:
     ) -> nixops.backends.MachineDefinition:
         defn = self._definition_for_required(name)
         if not isinstance(defn, nixops.backends.MachineDefinition):
-            raise Exception("Definition named '{}' is not a machine.".format(name))
+            raise Exception(f"Definition named '{name}' is not a machine.")
         return defn
 
     def _set_attrs(self, attrs: Dict[str, Optional[str]]) -> None:
@@ -272,9 +272,7 @@ class Deployment:
                 (self.uuid, name),
             )
             row: List[Optional[Any]] = c.fetchone()
-            if row is not None:
-                return row[0]
-            return nixops.util.undefined
+            return row[0] if row is not None else nixops.util.undefined
 
     def _create_resource(
         self, name: str, type: str
@@ -341,7 +339,7 @@ class Deployment:
             lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
             if not os.path.exists(lock_dir):
                 os.makedirs(lock_dir, 0o700)
-            self._lock_file_path = lock_dir + "/" + self.uuid
+            self._lock_file_path = f"{lock_dir}/{self.uuid}"
 
         class DeploymentLock(object):
             def __init__(self, depl: Deployment):
@@ -384,7 +382,7 @@ class Deployment:
             # Delete the profile, if any.
             profile = self.get_profile()
             assert profile
-            for p in glob.glob(profile + "*"):
+            for p in glob.glob(f"{profile}*"):
                 if os.path.islink(p):
                     os.remove(p)
 
@@ -463,7 +461,7 @@ class Deployment:
 
         exprs: List[str] = []
         if include_physical:
-            phys_expr = self.tempdir + "/physical.nix"
+            phys_expr = f"{self.tempdir}/physical.nix"
             with open(phys_expr, "w") as f:
                 f.write(self.get_physical_spec())
             exprs.append(phys_expr)
@@ -671,12 +669,12 @@ class Deployment:
         )
 
     def get_profile(self) -> str:
-        profile_dir = "/nix/var/nix/profiles/per-user/" + getpass.getuser()
-        if os.path.exists(profile_dir + "/charon") and not os.path.exists(
-            profile_dir + "/nixops"
+        profile_dir = f"/nix/var/nix/profiles/per-user/{getpass.getuser()}"
+        if os.path.exists(f"{profile_dir}/charon") and not os.path.exists(
+            f"{profile_dir}/nixops"
         ):
-            os.rename(profile_dir + "/charon", profile_dir + "/nixops")
-        return profile_dir + "/nixops/" + self.uuid
+            os.rename(f"{profile_dir}/charon", f"{profile_dir}/nixops")
+        return f"{profile_dir}/nixops/{self.uuid}"
 
     def create_profile(self) -> str:
         profile = self.get_profile()
@@ -709,7 +707,7 @@ class Deployment:
         #         ["/bin/sh", get_version_script] + self._nix_path_flags(), text=True
         #     ).rstrip()
 
-        phys_expr = self.tempdir + "/physical.nix"
+        phys_expr = f"{self.tempdir}/physical.nix"
         p = self.get_physical_spec()
         nixops.util.write_file(phys_expr, p)
         if DEBUG:
@@ -810,7 +808,7 @@ class Deployment:
             if not should_do(m, include, exclude):
                 return
             m.logger.log("copying closure...")
-            m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
+            m.new_toplevel = os.path.realpath(f"{configs_path}/{m.name}")
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
             m.copy_closure_to(m.new_toplevel)
@@ -902,7 +900,7 @@ class Deployment:
                 if dry_activate:
                     return None
 
-                if res != 0 and res != 100:
+                if res not in [0, 100]:
                     raise Exception(
                         "unable to activate new configuration (exit code {})".format(
                             res
@@ -963,20 +961,17 @@ class Deployment:
         self, include: List[str] = [], exclude: List[str] = []
     ) -> Dict[str, Dict[str, Any]]:
         self.evaluate_active(include, exclude)  # unnecessary?
-        machine_backups = {}
-        for m in self.active_machines.values():
-            if should_do(m, include, exclude):
-                machine_backups[m.name] = m.get_backups()
-
+        machine_backups = {
+            m.name: m.get_backups()
+            for m in self.active_machines.values()
+            if should_do(m, include, exclude)
+        }
         # merging machine backups into network backups
         backup_ids = [b for bs in machine_backups.values() for b in bs.keys()]
 
         backups: Dict[str, Dict[str, Any]] = {}
         for backup_id in backup_ids:
-            backups[backup_id] = {}
-            backups[backup_id]["machines"] = {}
-            backups[backup_id]["info"] = []
-            backups[backup_id]["status"] = "complete"
+            backups[backup_id] = {"machines": {}, "info": [], "status": "complete"}
             backup = backups[backup_id]
             for m in self.active_machines.values():
                 if should_do(m, include, exclude):
@@ -1042,7 +1037,7 @@ class Deployment:
             if m.state != m.STOPPED:
                 ssh_name = m.get_ssh_name()
                 res = subprocess.call(
-                    ["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"]
+                    ["ssh", f"root@{ssh_name}"] + m.get_ssh_flags() + ["sync"]
                 )
                 if res != 0:
                     m.logger.log("running sync failed on {0}.".format(m.name))
@@ -1353,10 +1348,7 @@ class Deployment:
         try:
             f()
             self.notify_success(action)
-        except KeyboardInterrupt as e:
-            self.notify_failed(action, e)
-            raise
-        except Exception as e:
+        except (KeyboardInterrupt, Exception) as e:
             self.notify_failed(action, e)
             raise
 
@@ -1394,7 +1386,7 @@ class Deployment:
 
         names = set()
         for filename in os.listdir(self.configs_path):
-            if not os.path.islink(self.configs_path + "/" + filename):
+            if not os.path.islink(f"{self.configs_path}/{filename}"):
                 continue
             if (
                 should_do_n(filename, include, exclude)
@@ -1515,7 +1507,7 @@ class Deployment:
                         "--set",
                         "*",
                         "-I",
-                        "nixops=" + self.expr_path,
+                        f"nixops={self.expr_path}",
                         "-f",
                         "<nixops/update-profile.nix>",
                         "--arg",
@@ -1592,7 +1584,7 @@ class Deployment:
 
     def is_valid_resource_name(self, name: str) -> bool:
         p = re.compile(r"^[\w-]+$")  # noqa: W605
-        return not p.match(name) is None
+        return p.match(name) is not None
 
     def rename(self, name: str, new_name: str) -> None:
         if name not in self.resources:
@@ -1639,9 +1631,7 @@ def should_do(
 def should_do_n(name: str, include: List[str], exclude: List[str]) -> bool:
     if name in exclude:
         return False
-    if include == []:
-        return True
-    return name in include
+    return True if not include else name in include
 
 
 def is_machine(
@@ -1698,10 +1688,10 @@ def _create_state(
 
 # Automatically load all resource types.
 def _load_modules_from(dir: str) -> None:
-    for module in os.listdir(os.path.dirname(__file__) + "/" + dir):
+    for module in os.listdir(f"{os.path.dirname(__file__)}/{dir}"):
         if module[-3:] != ".py" or module == "__init__.py":
             continue
-        importlib.import_module("nixops." + dir + "." + module[:-3])
+        importlib.import_module(f"nixops.{dir}.{module[:-3]}")
 
 
 _load_modules_from("backends")

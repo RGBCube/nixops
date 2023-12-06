@@ -8,7 +8,7 @@ from nixops.evaluation import NetworkFile
 
 parent_dir = path.dirname(__file__)
 
-logical_spec = "%s/invalid-identifier.nix" % (parent_dir)
+logical_spec = f"{parent_dir}/invalid-identifier.nix"
 
 
 class TestInvalidIdentifier(GenericDeploymentTest):

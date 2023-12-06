@@ -61,7 +61,7 @@ def check_wait(
     tries = 0
     while tries < max_tries and not test():
         wait = wait * factor
-        tries = tries + 1
+        tries += 1
         if tries == max_tries:
             if exception:
                 raise Exception("operation timed out")
@@ -115,7 +115,7 @@ class ImmutableMapping(Generic[K, V], Mapping[K, V]):
         return self[key]
 
     def __repr__(self) -> str:
-        return "<{} {}>".format(self.__class__.__name__, self._dict)
+        return f"<{self.__class__.__name__} {self._dict}>"
 
 
 class ImmutableValidatedObject:
@@ -212,7 +212,7 @@ class ImmutableValidatedObject:
 
             attrs.append(f"{attr}{ann} = {value}")
 
-        return "{}({})".format(self.__class__.__name__, ", ".join(attrs))
+        return f'{self.__class__.__name__}({", ".join(attrs)})'
 
 
 class NixopsEncoder(json.JSONEncoder):
@@ -324,7 +324,7 @@ def logged_exec(  # noqa: C901
     at_new_line = True
     stdout = ""
 
-    while len(fds) > 0:
+    while fds:
         # The timeout/poll is to deal with processes (like
         # VBoxManage) that start children that go into the
         # background but keep the parent's stdout/stderr open,
@@ -449,7 +449,7 @@ def abs_nix_path(x: str) -> str:
     xs = x.split("=", 1)
     if len(xs) == 1:
         return _maybe_abspath(x)
-    return xs[0] + "=" + _maybe_abspath(xs[1])
+    return f"{xs[0]}={_maybe_abspath(xs[1])}"
 
 
 class Undefined:
@@ -477,7 +477,7 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
         elif type is int:
             return int(s)
         elif type is bool:
-            return True if s == "1" else False
+            return s == "1"
         elif type == "json":
             return json.loads(s)
         else:
@@ -499,14 +499,24 @@ def create_key_pair(
 ) -> Tuple[str, str]:
     key_dir = tempfile.mkdtemp(prefix="nixops-key-tmp")
     res = subprocess.call(
-        ["ssh-keygen", "-t", type, "-f", key_dir + "/key", "-N", "", "-C", key_name],
+        [
+            "ssh-keygen",
+            "-t",
+            type,
+            "-f",
+            f"{key_dir}/key",
+            "-N",
+            "",
+            "-C",
+            key_name,
+        ],
         stdout=devnull,
     )
     if res != 0:
         raise Exception("unable to generate an SSH key")
-    with open(key_dir + "/key") as f:
+    with open(f"{key_dir}/key") as f:
         private = f.read()
-    with open(key_dir + "/key.pub") as f:
+    with open(f"{key_dir}/key.pub") as f:
         public = f.read().rstrip()
     shutil.rmtree(key_dir)
     return (private, public)
@@ -614,16 +624,15 @@ def parse_nixos_version(s: str) -> List[str]:
 def device_name_to_boto_expected(string: str) -> str:
     """Transfoms device name to name, that boto expects."""
     m = re.search(r"(.*)\/nvme(\d+)n1p?(\d+)?", string)  # noqa: W605
-    if m is not None:
-        device = m.group(2)
-        device_ = int(device) - 1
-        device_transformed = chr(ord("f") + device_)
-
-        partition = m.group(3) or ""
-
-        return "{0}/sd{1}{2}".format(m.group(1), device_transformed, partition)
-    else:
+    if m is None:
         return string.replace("/dev/xvd", "/dev/sd")
+    device = m.group(2)
+    device_ = int(device) - 1
+    device_transformed = chr(ord("f") + device_)
+
+    partition = m.group(3) or ""
+
+    return "{0}/sd{1}{2}".format(m.group(1), device_transformed, partition)
 
 
 # sd -> sd

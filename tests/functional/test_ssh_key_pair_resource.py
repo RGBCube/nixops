@@ -6,7 +6,7 @@ from nixops.evaluation import NetworkFile
 
 parent_dir = path.dirname(__file__)
 
-ssh_key_pair_spec = "%s/ssh-key-pair-resource.nix" % (parent_dir)
+ssh_key_pair_spec = f"{parent_dir}/ssh-key-pair-resource.nix"
 
 
 class TestSSHKeyPairResource(GenericDeploymentTest):

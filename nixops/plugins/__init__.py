@@ -26,8 +26,7 @@ def get_plugin_manager() -> pluggy.PluginManager:
 
 def get_plugins() -> Generator[Plugin, None, None]:
     pm = get_plugin_manager()
-    for plugin in pm.hook.plugin():
-        yield plugin
+    yield from pm.hook.plugin()
 
 
 class DeploymentHooks:

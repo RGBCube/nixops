@@ -39,7 +39,7 @@ class SSHMaster(object):
             mkdtemp(prefix="nixops-ssh-tmp")
         )
         self._askpass_helper: Optional[str] = None
-        self._control_socket: str = self._tempdir + "/master-socket"
+        self._control_socket: str = f"{self._tempdir}/master-socket"
         self._ssh_target: str = target
         pass_prompts: int = 0 if "-i" in ssh_flags and user is None else 3
         kwargs: Dict[str, Any] = {}
@@ -221,7 +221,7 @@ class SSH(object):
         Start (if necessary) an SSH master connection to speed up subsequent
         SSH sessions. Returns the SSHMaster instance on success.
         """
-        flags = flags + self._get_flags()
+        flags += self._get_flags()
         if self._ssh_master is not None:
             master = weakref.proxy(self._ssh_master)
             if master.is_alive():
@@ -260,12 +260,10 @@ class SSH(object):
                 self._logger.log(msg.format(self._get_target(user), sleep_time))
                 time.sleep(sleep_time)
                 sleep_time = sleep_time * 2
-                pass
-
         return weakref.proxy(self._ssh_master)  # type: ignore
 
     @classmethod
-    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], Command]:
+    def split_openssh_args(cls, args: Iterable[str]) -> Tuple[List[str], Command]:
         """
         Splits the specified list of arguments into a tuple consisting of the
         list of flags and a list of strings for the actual command.
@@ -273,18 +271,18 @@ class SSH(object):
         non_option_args = "bcDEeFIiLlmOopQRSWw"
         flags = []
         command = list(args)
-        while len(command) > 0:
+        while command:
             arg = command.pop(0)
             if arg == "--":
                 break
             elif arg.startswith("-"):
-                if len(command) > 0 and arg[1] in non_option_args:
+                if command and arg[1] in non_option_args:
                     flags.append(arg)
                     if len(arg) == 2:
                         flags.append(command.pop(0))
                 elif len(arg) > 2 and arg[1] != "-":
                     flags.append(arg[:2])
-                    command.insert(0, "-" + arg[2:])
+                    command.insert(0, f"-{arg[2:]}")
                 else:
                     flags.append(arg)
             else:
@@ -362,9 +360,9 @@ class SSH(object):
             timeout=timeout,
             user=user,
             tries=connection_tries,
-            ssh_quiet=True if ssh_quiet else False,
+            ssh_quiet=bool(ssh_quiet),
         )
-        flags = flags + self._get_flags()
+        flags += self._get_flags()
         if logged:
             flags.append("-x")
         cmd = ["ssh"] + master.opts + flags

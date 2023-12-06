@@ -35,10 +35,7 @@ class Handler:
     ) -> None:
         if after is None:
             after = []
-        if handle is None:
-            self.handle = self._default_handle
-        else:
-            self.handle = handle
+        self.handle = self._default_handle if handle is None else handle
         self._keys = keys
         self._dependencies = after
 
@@ -102,8 +99,7 @@ class Diff(Generic[ResourceDefinitionType]):
         self._reserved.extend(keys)
 
     def get_keys(self) -> List[str]:
-        diff = [k for k in self._diff if k not in self._reserved]
-        return diff
+        return [k for k in self._diff if k not in self._reserved]
 
     def plan(self, show: bool = False) -> List[Handler]:
         """
@@ -181,8 +177,7 @@ class Diff(Generic[ResourceDefinitionType]):
                         )
                     )
             if set(self.get_keys()) <= set(keys):
-                handlers_seq = self.topological_sort(list(h_tuple))
-                return handlers_seq
+                return self.topological_sort(list(h_tuple))
         return self.get_handlers_sequence(combinations + 1)
 
     def eval_resource_attr_diff(self, key: str) -> None:
@@ -192,7 +187,7 @@ class Diff(Generic[ResourceDefinitionType]):
             self._diff[key] = self.SET
         elif s is not None and d is None:
             self._diff[key] = self.UNSET
-        elif s is not None and d is not None:
+        elif s is not None:
             if s != d:
                 self._diff[key] = self.UPDATE
 

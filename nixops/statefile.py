@@ -20,11 +20,7 @@ class Connection(sqlite3.Connection):
             "(file://)?([^?]*)(\\?.*)?", db_file
         )
         file: str
-        if matchMaybe is None:
-            file = db_file
-        else:
-            file = matchMaybe.group(2)
-
+        file = db_file if matchMaybe is None else matchMaybe.group(2)
         db_exists: bool = os.path.exists(file)
         if not db_exists:
             os.fdopen(os.open(file, os.O_WRONLY | os.O_CREAT, 0o600), "w").close()
@@ -76,12 +72,13 @@ def get_default_state_file() -> str:
         if os.path.exists(old_home):
             sys.stderr.write("renaming ‘{0}’ to ‘{1}’...\n".format(old_home, home))
             os.rename(old_home, home)
-            if os.path.exists(home + "/deployments.charon"):
-                os.rename(home + "/deployments.charon", home + "/deployments.nixops")
+            if os.path.exists(f"{home}/deployments.charon"):
+                os.rename(f"{home}/deployments.charon", f"{home}/deployments.nixops")
         else:
             os.makedirs(home, 0o700)
     return os.environ.get(
-        "NIXOPS_STATE", os.environ.get("CHARON_STATE", home + "/deployments.nixops")
+        "NIXOPS_STATE",
+        os.environ.get("CHARON_STATE", f"{home}/deployments.nixops"),
     )
 
 
@@ -156,9 +153,7 @@ class StateFile(object):
             elif self._table_exists(c, "Deployments"):
                 version = 1
 
-            if version == self.current_schema:
-                pass
-            else:
+            if version != self.current_schema:
                 # If a schema update is necessary, we'll need to do so despite
                 # being in read only mode. This is ok, because the purpose of
                 # read only mode is to catch problems where we didn't request
@@ -227,16 +222,13 @@ class StateFile(object):
             )
         res = c.fetchall()
         if len(res) == 0:
-            if uuid:
-                # try the prefix match
-                c.execute(
-                    "select uuid from Deployments where uuid glob ?", (uuid + "*",)
-                )
-                res = c.fetchall()
-                if len(res) == 0:
-                    return None
-            else:
+            if not uuid:
                 return None
+                # try the prefix match
+            c.execute("select uuid from Deployments where uuid glob ?", (f"{uuid}*", ))
+            res = c.fetchall()
+        if len(res) == 0:
+            return None
         if len(res) > 1:
             if uuid:
                 raise Exception(
@@ -252,8 +244,7 @@ class StateFile(object):
         self, uuid: Optional[str] = None
     ) -> nixops.deployment.Deployment:
         """Open an existing deployment."""
-        deployment = self._find_deployment(uuid=uuid)
-        if deployment:
+        if deployment := self._find_deployment(uuid=uuid):
             return deployment
         raise Exception(
             "could not find specified deployment in state file ‘{0}’".format(
