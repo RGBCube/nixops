@@ -17,13 +17,7 @@ For more information, please refer to the [NixOps manual](https://nixos.org/nixo
 _NixOps_ is included in nixpkgs and can be executed in a shell as follows:
 
 ```
-$ nix-shell -p nixops
-```
-
-or for a bleeding edge version, including many fixes relative to the 1.7 series,
-
-```
-$ nix-shell -p nixopsUnstable
+$ nix-shell -p nixops_unstable
 ```
 
 You may need access to a Nix remote builder if your system does not support the deployment's `system` builds directly. MacOS users may use a virtual machine with NixOS for this purpose.
